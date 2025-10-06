@@ -1,0 +1,253 @@
+---
+title: "DTI_MTES_CODING"
+author: "Daniel Zweben"
+date: "2024-11-03"
+output: html_document
+---
+#### READ IN DATA FRAME FROM REDCAP
+
+```{r}
+library(dplyr)
+df1_screen <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/projectprep/projcetdata-start.csv")
+```
+
+
+SHS screen time data: 
+```{r}
+stream_room <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/streamroomuse.csv")
+```
+
+Screen time data: 
+
+```{r}
+screen_time <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/screen_time_data.csv")
+```
+
+
+```{r}
+ef_mtes_data <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/Lina-scored-data.csv")
+
+
+ef_mtes_data <- ef_mtes_data %>%
+  filter(!grepl("\\.2$", PID))
+ef_mtes_data <- ef_mtes_data %>%
+  group_by(PID) %>%
+  filter(n() == 1) %>%
+  ungroup()
+
+
+efmtes_used <- dplyr::select(ef_mtes_data, PID, birth_sex, MTES_SocialMediaUse_TimeOnApp.sum, MTES_PhoneChecking.mean, MTES_PublicUpdates.mean)
+
+efmtes_used <- efmtes_used %>%
+  mutate(across(
+    .cols = where(is.numeric) & !all_of(c("PID", "birth_sex")),
+    .fns = ~ scale(.)[,1],
+    .names = "{.col}.z"
+  ))
+
+efmtes_used <- dplyr::select(efmtes_used, PID, MTES_SocialMediaUse_TimeOnApp.sum.z, MTES_PhoneChecking.mean.z, MTES_PublicUpdates.mean.z)          
+
+
+efmtes_more <- dplyr::select(ef_mtes_data, PID, overall_dprime, Flanker_Z, texi_sum_score)
+
+efmtes_more <- efmtes_more %>%
+  mutate(
+    texi_sum_score.z = scale(-texi_sum_score)[, 1]
+  )
+
+efmtes_more <- efmtes_more %>%
+  dplyr::select(-texi_sum_score)
+
+ef_mt <- left_join(efmtes_used, efmtes_more, by = "PID")
+
+
+```
+
+```{r}
+library(dplyr)
+# Merge df1 and df2 on PID
+merged_1_2 <- left_join(df1_screen, stream_room, by = "PID")
+
+# Merge the result with df3 on PID
+# Start with df1_screen and left join in the others
+df_final <- merged_1_2 %>%
+  left_join(screen_time, by = "PID")
+
+
+# Columns to exclude
+cols_to_exclude <- c("PID", "des_own", "Age", "shs_tv", "shs_computer", "shs_phone")
+
+# Get columns to z-score
+cols_to_z <- setdiff(names(df_final), cols_to_exclude)
+
+# Z-score and rename with .z
+df_final <- df_final %>%
+  mutate(across(
+    all_of(cols_to_z),
+    ~ scale(.)[,1],
+    .names = "{.col}.z"
+  )) %>%
+  dplyr::select(all_of(cols_to_exclude), ends_with(".z"))
+
+
+
+df_final <- left_join(df_final, ef_mt, by = "PID")
+
+
+
+```
+
+
+
+score devices in room
+```{r}
+df_final <- df_final %>%
+  mutate(
+    digital_room_score = shs_tv + shs_computer + shs_phone,
+    digital_room_score.z = scale(digital_room_score)[, 1]
+  )
+
+```
+
+
+digital immersion PCA
+
+```{r}
+# Step 1: Create PCA input without filtering df_final
+pca_input <- df_final %>%
+  dplyr::select(
+    MTES_Streaming_Composite.z,
+    MTES_SocialMediaUse_TimeOnApp.sum.z,
+    MTES_PhoneChecking.mean.z,
+    MTES_PublicUpdates.mean.z,
+    digital_room_score.z
+  )
+
+# Step 2: Filter only PCA input to valid rows
+pca_rows <- complete.cases(pca_input)
+pca_result <- prcomp(pca_input[pca_rows, ], center = TRUE, scale. = TRUE)
+
+# Step 3: Add PCA scores back to original df_final
+df_final$screen_behavior_pca_score <- NA
+df_final$screen_behavior_pca_score[pca_rows] <- pca_result$x[, 1]
+
+
+# View component loadings
+print(pca_result$rotation, digits = 3)
+
+# View variance explained
+summary(pca_result)
+
+
+
+
+
+
+```
+
+```{r}
+#DID PCA FLIP IT NEGATIVE?
+
+cor(df_final$screen_behavior_pca_score, df_final$MTES_SocialMediaUse_TimeOnApp.sum.z, use = "complete.obs")
+
+```
+
+```{r}
+df_final <- df_final %>%
+  rename(dprime.z = overall_dprime)
+
+df_final <- df_final %>%
+  mutate(
+    Flanker_Z = -Flanker_Z,
+    flanker.z = scale(Flanker_Z)[,1]
+  )
+
+
+df_cleaner <- dplyr::select(df_final, PID, des_own, Age, MTES_Streaming_Composite.z, avg_minutes_clean.z, avg_pickups_clean.z, Flanker_Z, texi_sum_score.z, screen_behavior_pca_score, dprime.z, avg_notifs_clean.z)
+```
+
+Read in task dataTask DF
+
+```{r}
+# Load the CSV
+other_df <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/task-data.csv")
+
+# Clean and subset
+other_df <- other_df %>%
+  mutate(
+    PID = as.numeric(PID)
+  ) %>%
+  filter(PID < 2000) %>%
+  dplyr::select(PID, zuckerman.mean, barrets.sum, sas_mean) %>%
+  mutate(
+    barrets.z = scale(-barrets.sum)[,1],
+    zuckerman.z = scale(zuckerman.mean)[,1],
+    sas.z = scale(sas_mean)[,1]
+  ) %>%
+  dplyr::select(-barrets.sum, -zuckerman.mean, -sas_mean)
+
+library(readr) 
+
+task_data <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/taskdata/task_data_1000.csv")
+
+
+
+
+```
+
+
+```{r}
+
+
+# Merge df1 and df2 on PID
+merged_1_2 <- left_join(other_df, task_data, by = "PID")
+
+# Merge the result with df3 on PID
+df_cleaner <- left_join(df_cleaner, merged_1_2, by = "PID")
+
+
+
+```
+
+
+
+```{r}
+health <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/sleepdata.csv")
+
+health <- health %>%
+  mutate(
+    healthcomp.z = rowMeans(cbind(
+      sleep_composite.z,
+      bodyhealth.z
+    ), na.rm = TRUE)
+  )
+df_cleaner <- left_join(df_cleaner, health, by = "PID")
+
+df_cleaner <- df_cleaner %>%
+  mutate(across(
+    .cols = where(is.numeric),
+    .fns = ~ ifelse(abs(scale(.)) > 3, NA, .)
+  ))
+
+
+```
+
+
+
+
+
+```{r}
+df_output <- df_cleaner %>%
+  dplyr::select(
+    PID, des_own, Age,
+    MTES_Streaming_Composite.z, avg_minutes_clean.z, avg_pickups_clean.z,
+    Flanker_Z, texi_sum_score.z, screen_behavior_pca_score, dprime.z,
+    barrets.z, sas.z, delay_discounting_indiff_z,
+    sleep_composite.z, bodyhealth.z, healthcomp.z, avg_notifs_clean.z
+  )
+
+write.csv(df_output, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/final-items.csv", row.names = FALSE)
+
+```
+
+

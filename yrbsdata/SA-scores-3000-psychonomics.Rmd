@@ -1,0 +1,341 @@
+---
+title: "Risk_Project"
+Author: Danny Zweben
+date: "2024-05-29"
+
+---
+#--- Set Working Directory --- #
+
+```{r}
+setwd("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/yrbsdata")
+
+```
+
+# --- Read csv file into R ---#
+```{r}
+
+df_filtered <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/yrbsdata/substance_scores.csv")
+
+```
+
+
+# --- Load relevant libraries for R code ---#
+```{r}
+
+library(corrplot)
+library(dplyr)
+library(apaTables)
+library(psych)
+library(ggplot2)
+
+```
+
+
+################################################## General Data management ######################################################
+
+dplyr::select just 3rd cohort data - and remove blank rowws with no pid
+```{r}
+
+library(dplyr)
+
+df_filtered <- df_filtered %>%
+  # Remove rows where PID is blank or NA
+  filter(PID != "" & !is.na(PID)) %>%
+  # Convert PID to numeric
+  mutate(PID = as.numeric(PID)) %>%
+  # Remove rows where PID is not between 3000 and 4000
+  filter(PID >= 3000 & PID <= 4000)
+
+
+
+```
+
+
+
+################################################## VARIABLE SCORING ######################################################
+
+```{r}
+##yrbs scoring
+library(dplyr)
+
+yrbs_df <- df_filtered %>% filter(redcap_event_name == "visit_1_y1_arm_1") %>% dplyr::select(PID, starts_with("yrbs"))
+
+### dplyr:selecting a df for drug use frequency
+### excluding meth, heroin
+
+yrbs_drug_freq <- yrbs_df %>%
+  dplyr::select(PID, yrbs_cig_days, yrbs_cig_day_freq, yrbs_vape_days, yrbs_cigars,
+         yrbs_alcfreq, yrbs_alc45freq, yrbs_alccount, yrbs_mjuse, yrbs_mjfreq, yrbs_tobacdays)
+
+##rescore NA's for frequency to 0 if they indicated that they don't use the drug 
+
+yrbs_drug_freq$yrbs_cig_days[yrbs_df$yrbs_cig_try == 0 & is.na(yrbs_drug_freq$yrbs_cig_days)] <- 1
+yrbs_drug_freq$yrbs_cig_day_freq[yrbs_df$yrbs_cig_try == 0 & is.na(yrbs_drug_freq$yrbs_cig_day_freq)] <- 1
+yrbs_drug_freq$yrbs_vape_days[yrbs_df$yrbs_vape_use == 0 & is.na(yrbs_drug_freq$yrbs_vape_days)] <- 1
+
+
+#zscore all drug use freq scores
+scaled_data <- scale(yrbs_drug_freq[, setdiff(names(yrbs_drug_freq), "PID")])
+
+# Combine the "PID" column with the scaled data
+yrbs_drug_freq_scaled <- cbind(yrbs_drug_freq["PID"], as.data.frame(scaled_data))
+
+
+yrbs_total_scores <- dplyr::select(yrbs_df, PID)
+
+```
+
+```{r}
+#PCA drug freq scores
+
+##alcohol: 
+
+# Step 1: Keep only rows with complete, finite values
+alcohol_data <- yrbs_drug_freq_scaled[, c("yrbs_alcfreq", "yrbs_alccount", "yrbs_alc45freq")]
+valid_rows <- complete.cases(alcohol_data) & apply(alcohol_data, 1, function(x) all(is.finite(x)))
+alcohol_data_clean <- alcohol_data[valid_rows, ]
+
+# Step 2: Run PCA
+alcohol_pca <- prcomp(alcohol_data_clean, center = TRUE, scale. = FALSE)
+
+# Step 3: Store score in master dataframe
+yrbs_total_scores$alcohol_pca_score <- NA
+yrbs_total_scores[rownames(alcohol_data_clean), "alcohol_pca_score"] <- alcohol_pca$x[, 1]
+
+
+## weed: 
+#PCA drug freq scores
+
+# ---- PCA Marijuana Use Score ----
+
+# Step 1: Keep only rows with complete, finite values
+marijuana_data <- yrbs_drug_freq_scaled[, c("yrbs_mjuse", "yrbs_mjfreq")]
+valid_rows_mj <- complete.cases(marijuana_data) & apply(marijuana_data, 1, function(x) all(is.finite(x)))
+marijuana_data_clean <- marijuana_data[valid_rows_mj, ]
+
+# Step 2: Run PCA
+marijuana_pca <- prcomp(marijuana_data_clean, center = TRUE, scale. = FALSE)
+
+# Step 3: Store score in master dataframe
+yrbs_total_scores$marijuana_pca_score <- NA
+yrbs_total_scores[rownames(marijuana_data_clean), "marijuana_pca_score"] <- marijuana_pca$x[, 1]
+
+
+
+### Nicotine
+# ---- Step 1: Define nicotine variables ----
+nicotine_vars <- c("yrbs_cig_days", "yrbs_cig_day_freq", "yrbs_vape_days", "yrbs_cigars", "yrbs_tobacdays")
+
+# ---- Step 2: Subset and clean ----
+nicotine_data <- yrbs_drug_freq_scaled[, nicotine_vars]
+nicotine_data <- nicotine_data |> 
+  mutate(across(everything(), ~ as.numeric(.))) |> 
+  filter(if_all(everything(), ~ !is.na(.) & is.finite(.)))
+
+# ---- Step 3: Run PCA ----
+nicotine_pca <- prcomp(nicotine_data, center = TRUE, scale. = FALSE)
+
+# ---- Step 4: Add PCA score to output dataframe ----
+yrbs_total_scores$nicotine_pca_score <- NA
+yrbs_total_scores[rownames(nicotine_data), "nicotine_pca_score"] <- nicotine_pca$x[, 1]
+
+
+yrbs_total_scores$marijuana_pca_score <- -marijuana_pca$x[, 1]
+## the PCA flipped the direction of the weed scores so we're flipping it back to make higher = more weed :D 
+
+```
+
+
+add drug use ever
+```{r}
+# Create the drug_use_ever column
+yrbs_df <- yrbs_df %>%
+  mutate(drug_use_ever = ifelse(
+    yrbs_cig_try == 0 &
+    yrbs_vape_use == 0 &
+    yrbs_tobacdays == 1 &
+    yrbs_cigars == 1 &
+    yrbs_alcfirst == 1 &
+    yrbs_mjuse == 1 &
+    yrbs_synthmjuse == 1 &
+    yrbs_rxuse == 1 &
+    yrbs_cocaine == 1 &
+    yrbs_inhalants == 1 &
+    yrbs_heroin == 1 &
+    yrbs_meth == 1 &
+    yrbs_ecstasy == 1 &
+    yrbs_injections == 1, 
+    0, 1
+  ))
+
+yrbs_ever_df <- dplyr::select(yrbs_df, PID, drug_use_ever)
+
+
+yrbs_total_scores <- merge(yrbs_ever_df, yrbs_total_scores, by = "PID")
+```
+
+
+
+```{r}
+
+# Recode maps
+cig_vape_alc_map <- c(
+  "1" = "0 days",
+  "2" = "1 or 2 days",
+  "3" = "3 to 5 days",
+  "4" = "6 to 9 days",
+  "5" = "10 to 19 days",
+  "6" = "20 to 29 days",
+  "7" = "All 30 days"
+)
+
+mj_map <- c(
+  "1" = "0 times",
+  "2" = "1 or 2 times",
+  "3" = "3 to 9 times",
+  "4" = "10 to 19 times",
+  "5" = "20 to 39 times",
+  "6" = "40 or more times"
+)
+
+# Apply transformations
+yrbs_drug_freq <- yrbs_drug_freq %>%
+  mutate(
+    `how many days in the last month did you smoke at least 1 cigarette` = recode(as.character(yrbs_cig_days), !!!cig_vape_alc_map),
+    `how many days in the last month did you vape at least 1 time` = recode(as.character(yrbs_vape_days), !!!cig_vape_alc_map),
+    `how many days in the last month did you drink alcohol at least 1 time` = recode(as.character(yrbs_alcfreq), !!!cig_vape_alc_map),
+    `how many times did you use marijuana in the last 30 days` = recode(as.character(yrbs_mjfreq), !!!mj_map)
+  )
+
+
+yrbs_rawcount <- yrbs_drug_freq %>%
+  dplyr::select(
+    PID, 
+    `how many days in the last month did you smoke at least 1 cigarette`,
+    `how many days in the last month did you vape at least 1 time`,
+    `how many days in the last month did you drink alcohol at least 1 time`,
+    `how many times did you use marijuana in the last 30 days`
+  )
+
+yrbs_total_scores <- left_join(yrbs_total_scores, yrbs_rawcount, by = "PID")
+
+
+```
+
+
+
+
+```{r}
+library(tidyverse)
+
+psychonom_drug_df <- yrbs_total_scores
+
+# Load the CSV
+other_df <- read_csv("/Users/dannyzweben/Desktop/CABLAB_Files/Rest/project1/data/rest-data-1.csv")
+
+# Clean and subset
+other_df <- other_df %>%
+  mutate(
+    PID = as.numeric(PID)
+  ) %>%
+  filter(PID >= 3000 & PID <= 4000) %>%
+  dplyr::select(PID, rpi_score, participant_age, 
+         zuckerman.mean, barrets.sum) %>%
+  mutate(
+    barrets.z = scale(barrets.sum)[,1], 
+    zuckerman.z = scale(zuckerman.mean)[,1], 
+    rpi.z = scale(rpi_score)[,1]
+  ) %>%
+  dplyr::select(-barrets.sum, -zuckerman.mean)
+
+# Now `other_df` contains only the needed, cleaned, and transformed variables
+
+texi_df <-read_csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/texi-data/3000texi.csv")
+
+
+
+psychonom_drug_df <- left_join(
+  psychonom_drug_df %>% mutate(PID = as.numeric(PID)),
+  other_df %>% mutate(PID = as.numeric(PID)),
+  by = "PID"
+)
+
+
+
+psychonom_drug_df <- left_join(
+  psychonom_drug_df %>% mutate(PID = as.numeric(PID)),
+  texi_df %>% mutate(PID = as.numeric(PID)),
+  by = "PID"
+)
+
+```
+
+
+
+
+```{r}
+library(readr)
+
+task_data <- read_csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/taskdata/taskdata.csv", show_col_types = FALSE)
+psychonom_drug_df <- left_join(psychonom_drug_df, task_data, by = "PID")
+
+arsq_data <- read_csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/arsqdata/arsq-rawcode_z.csv", show_col_types = FALSE)
+psychonom_drug_df <- left_join(psychonom_drug_df, arsq_data, by = "PID")
+
+
+```
+
+
+```{r}
+# Flip the direction of the specified z-score variables
+psychonom_drug_df <- psychonom_drug_df %>%
+  mutate(
+    delay_discounting_indiff_z = -delay_discounting_indiff_z,
+    rpi.z = -rpi.z,
+    barrets.z = -barrets.z
+  )
+
+
+```
+
+```{r}
+# Identify numeric columns except PID
+numeric_cols <- psychonom_drug_df %>%
+  dplyr::select(where(is.numeric)) %>%
+  dplyr::select(-PID) %>%
+  colnames()
+
+# Replace outliers with NA
+psychonom_drug_df[numeric_cols] <- lapply(
+  psychonom_drug_df[numeric_cols],
+  function(x) {
+    z <- scale(x)
+    x[abs(z) > 3] <- NA
+    return(x)
+  }
+)
+df <- psychonom_drug_df
+```
+
+
+
+
+```{r}
+psychonom_drug_df <- psychonom_drug_df %>%
+  mutate(alcohol_weed_composite = (alcohol_pca_score + marijuana_pca_score) / 2)
+
+
+```
+
+
+
+
+
+
+```{r}
+cohortmerge <- psychonom_drug_df
+```
+
+
+
+

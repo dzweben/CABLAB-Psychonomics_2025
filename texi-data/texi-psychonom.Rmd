@@ -1,0 +1,70 @@
+---
+title: "Risk_Project"
+Author: Danny Zweben
+date: "2024-05-29"
+
+---
+#--- Set Working Directory --- #
+
+# --- Read csv file into R ---#
+```{r}
+
+df_filtered <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/texi-data/texi-psychon.csv")
+
+```
+
+```{r}
+
+# Get mapping of record_id to PID from non-missing rows
+pid_lookup <- df_filtered %>%
+  filter(!is.na(PID)) %>%
+  distinct(record_id, PID)
+
+# Join back to fill in missing PIDs
+df_filtered <- df_filtered %>%
+  select(-PID) %>%  # drop current PID column
+  left_join(pid_lookup, by = "record_id")  # re-merge clean mapping
+
+
+
+```
+
+#### Scoring TEXI working Memory ####
+
+```{r}
+# Calculate reversed TEXI total score (higher = better EF)
+texi_total_score <- df_filtered %>%
+  filter(redcap_event_name == "athome_measures_y1_arm_1") %>%
+  select(PID, texi_lengthy, texi_middle, texi_thinking,
+         texi_allowed, texi_several, texi_laughing, texi_stuck,
+         texi_forget, texi_planning, texi_stoplike, texi_shown,
+         texi_steps, texi_motivation, texi_distracted, texi_stopasked,
+         texi_lastminute) %>%
+  mutate(across(-PID, ~ 5 - .)) %>%
+  mutate(texi_total = rowSums(across(-PID))) %>%
+  select(PID, texi_total)
+
+```
+
+
+```{r}
+# Force PID to numeric
+texi_total_score <- texi_total_score %>%
+  mutate(PID = as.numeric(PID))
+
+# 2000–2999 cohort
+texi_2000 <- texi_total_score %>%
+  filter(PID >= 2000 & PID < 3000) %>%
+  mutate(texi_total.z = scale(texi_total)[, 1])
+
+write.csv(texi_2000, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/texi-data/2000texi.csv", row.names = FALSE)
+
+# 3000–3999 cohort
+texi_3000 <- texi_total_score %>%
+  filter(PID >= 3000 & PID < 4000) %>%
+  mutate(texi_total.z = scale(texi_total)[, 1])
+
+write.csv(texi_3000, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/texi-data/3000texi.csv", row.names = FALSE)
+
+```
+

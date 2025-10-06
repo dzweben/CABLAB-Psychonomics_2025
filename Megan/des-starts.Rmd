@@ -1,0 +1,222 @@
+---
+title: "DTI_MTES_CODING"
+author: "Daniel Zweben"
+date: "2024-11-03"
+output: html_document
+---
+#### READ IN DATA FRAME FROM REDCAP
+
+```{r}
+df <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/newobj.csv")
+```
+
+# --- Load relevant libraries for R code ---
+```{r}
+
+library(corrplot)
+library(dplyr)
+library(apaTables)
+library(psych)
+library(ggplot2)
+
+```
+
+
+### RENAME MTES Variables (renaming it from the redcap variable names to the variales the lab uses to code social media data)
+```{r}
+# Load the necessary library
+library(dplyr)
+
+# Rename each column separately
+df <- df %>% rename(device_smartphone = des_devuse___1)
+df <- df %>% rename(device_computer = des_devuse___2)
+df <- df %>% rename(device_tablet = des_devuse___3)
+df <- df %>% rename(device_gaming = des_devuse___4)
+df <- df %>% rename(device_tv = des_devuse___5)
+df <- df %>% rename(device_used_most = des_devmost)
+df <- df %>% rename(Age.FirstPhone = des_agefirst)
+df <- df %>% rename(OwnPhone = des_current)
+df <- df %>% rename(MTES_TimeSpent_Daily_Hours = des_24think_hr_1)
+df <- df %>% rename(MTES_TimeSpent_Daily_Minutes = des_24think_min_1)
+df <- df %>% rename(MTES_PhoneChecking_DailyCheck = des_allcheck)
+df <- df %>% rename(MTES_PhoneChecking_notifications = des_rescheck)
+df <- df %>% rename(MTES_PhoneChecking_no_notifications = des_blankcheck)
+df <- df %>% rename(MTES_PhoneChecking_notifications_count = des_alertest)
+df <- df %>% rename(MTES_PhoneChecking_Leisure = des_sparecheck)
+df <- df %>% rename(MTES_PhoneChecking_MidConvo = des_convocheck)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_instagram = des_ig)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_tumblr = des_tum)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_pinterest = des_pin)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_facebook = des_fb)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_twitter = des_twt)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_snapchat = des_snap)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_tiktok = des_tik)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_youtube = des_yt)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_reddit = des_r)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_whatsapp = des_whts)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_bereal = des_bereal)
+df <- df %>% rename(MTES_SocialMediaUse_Platform_other = des_altsm)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_instagram = des_ig_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_facebook = des_fb_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_twitter = des_twt_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_snapchat = des_snap_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_tiktok = des_tik_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_youtube = des_yt_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_reddit = des_r_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_tumblrr = des_tum_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_pinterest = des_pin_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_whatsapp = des_whts_use)
+df <- df %>% rename(MTES_SocialMediaUse_TimeOnApp_other = des_altsm_use)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_instagram = des_ig_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_twitter = des_twt_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_facebook = des_fbcheck)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_snapchat = des_snap_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_tiktok = des_tik_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_youtube = des_yt_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_reddit = des_r_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_tumblr = des_tum_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_pinterest = des_pin_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_whatsapp = des_whts_check)
+df <- df %>% rename(MTES_SocialMediaUse_CheckingApp_other = des_altsm_check)
+df <- df %>% rename(MTES_PublicUpdates_NewPosts = des_postfreq)
+df <- df %>% rename(MTES_PublicUpdates_Reposts = des_repostfreq)
+df <- df %>% rename(MTES_Time_Streaming_phone = des_phn_stream)
+df <- df %>% rename(MTES_Time_Streaming_tablet = des_tab_stream)
+df <- df %>% rename(MTES_Time_Streaming_computer = des_cpu_stream)
+df <- df %>% rename(MTES_Time_Streaming_tv = des_tv_stream)
+df <- df %>% rename(MTES_Time_Streaming_gaming = des_game_stream)
+df <- df %>% rename(MessagesSent = des_send_est_1)
+df <- df %>% rename(MessagesReceived = des_receive_est_1)
+df <- df %>% rename(MTES_calm = des_calm)
+df <- df %>% rename(MTES_calm_nonphone = des_calm_not)
+
+df <- df %>% rename(OBJ_Usage_Type = des_os)
+df <- df %>% rename(OBJ_Usage_Hours_iphone = des_ios_daily_hr_1)
+df <- df %>% rename(OBJ_Usage_Minutes_iphone = des_ios_daily_m_1)
+df <- df %>% rename(OBJ_Cat1_Name = des_ios_showcat_1)
+df <- df %>% rename(OBJ_Cat2_Name = des_ios_showcat_2)
+df <- df %>% rename(OBJ_Cat3_Name = des_ios_showcat_3)
+df <- df %>% rename(OBJ_Cat4_Name = des_ios_showcat_4)
+df <- df %>% rename(OBJ_Cat5_Name = des_ios_showcat_5)
+df <- df %>% rename(OBJ_Usage_Hours_android = des_and_daily_h_1)
+df <- df %>% rename(OBJ_Usage_Minutes_android = des_and_daily_m_1)
+df <- df %>% rename(OBJ_Cat1_Hours = des_ios_showcat1_h)
+df <- df %>% rename(OBJ_Cat1_Minutes = des_ios_showcat1_m)
+df <- df %>% rename(OBJ_Cat2_Hours = des_ios_showcat2_h)
+df <- df %>% rename(OBJ_Cat2_Minutes = des_ios_showcat2_m)
+df <- df %>% rename(OBJ_Cat3_Hours = des_ios_showcat3_h)
+df <- df %>% rename(OBJ_Cat3_Minutes = des_ios_showcat3_m)
+df <- df %>% rename(OBJ_Cat4_Hours = des_ios_showcat4_h)
+df <- df %>% rename(OBJ_Cat4_Minutes = des_ios_showcat4_m)
+df <- df %>% rename(OBJ_Cat5_Hours = des_ios_showcat5_h)
+df <- df %>% rename(OBJ_Cat5_Minutes = des_ios_showcat5_m)
+df <- df %>% rename(OBJ_Top1_Name_android = des_and_topapp_1)
+df <- df %>% rename(OBJ_Top1_Hours_android = des_and_topapp_1_h_1)
+df <- df %>% rename(OBJ_Top1_Minutes_android = des_and_topapp_1_m_1)
+df <- df %>% rename(OBJ_Top2_Name_android = des_and_topapp_2)
+df <- df %>% rename(OBJ_Top2_Hours_android = des_and_topapp_2_h_1)
+df <- df %>% rename(OBJ_Top2_Minutes_android = des_and_topapp_2_m_1)
+df <- df %>% rename(OBJ_Top3_Name_android = des_and_topapp3)
+df <- df %>% rename(OBJ_Top3_Hours_android = des_topapp_3_h_1)
+df <- df %>% rename(OBJ_Top3_Minutes_android = des_topapp_3_m_1)
+df <- df %>% rename(OBJ_AvgPickups = des_ios_pickup)
+df <- df %>% rename(OBJ_AvgNotifs = des_ios_notifs)
+
+# View the updated dataframe
+print(df)
+
+```
+
+### FILTER FOR ONLY COHORT 3 USABLE DATA
+
+
+
+
+###calculate daily usage from last week score
+
+```{r}
+library(dplyr)
+
+# Calculate OBJ_Usage.DailyHourlyAverage, summing only available values
+df <- df %>%
+  mutate(
+    obj1 = rowSums(
+      data.frame(
+        OBJ_Usage_Minutes_iphone / 60,
+        OBJ_Usage_Hours_iphone,
+        OBJ_Usage_Hours_android ,
+        OBJ_Usage_Minutes_android / 60
+      ),
+      na.rm = TRUE  # Remove NA values from the sum
+    )
+  )
+
+# Define column names
+stream_cols <- c(
+  "MTES_Time_Streaming_phone",
+  "MTES_Time_Streaming_tablet",
+  "MTES_Time_Streaming_computer",
+  "MTES_Time_Streaming_tv",
+  "MTES_Time_Streaming_gaming"
+)
+
+# Step 1: Convert all to numeric
+df[stream_cols] <- lapply(df[stream_cols], as.numeric)
+
+# Step 2: Add the sum
+df <- df %>%
+  mutate(
+    MTES_Streaming_Composite = rowSums(across(all_of(stream_cols)), na.rm = TRUE)
+  )
+
+
+
+```
+
+
+```{r}
+
+objuse <- subset(df, select=c(record_id, PID, obj1, OBJ_AvgPickups, OBJ_AvgNotifs))
+write.csv(objuse, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/obj1.csv", row.names = FALSE)
+
+stream <- select(df, record_id, PID, MTES_Streaming_Composite)
+
+```
+
+
+
+
+SHS screen time data: 
+```{r}
+shs <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/restmergein/rest-data-1.csv")
+shs <- select(shs, PID, shs_tv,	shs_computer, shs_phone)
+
+# Merge by PID
+final_df <- merge(shs, stream, by = "PID")
+
+# Filter to only include PIDs ≤ 1999
+final_df <- final_df %>% filter(PID <= 1999)
+
+# Save to CSV
+write.csv(final_df, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/fullproject/streamroomuse.csv", row.names = FALSE)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

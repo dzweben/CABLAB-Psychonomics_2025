@@ -1,0 +1,152 @@
+---
+title: "sts scoring"
+author: "Daniel Zweben"
+date: "2025-06-02"
+output: html_document
+---
+
+```{r}
+
+df <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/sas-data/sts.csv")
+
+
+```
+
+####################### scoring 4 months of data screen time data - drop a score if its in the bottom 10th percentile for a month across all 3 (indicates they filled it in wrong and used today's data early in the morning or this weeks data on sunday....incorrect)
+
+```{r}
+library(dplyr)
+
+# Step 1: Compute 10th percentile cutoffs
+minutes_cutoff <- quantile(unlist(df[, c("total_minutes_1", "total_minutes_2", "total_minutes_3", "total_minutes_4")]), 0.10, na.rm = TRUE)
+pickup_cutoff  <- quantile(unlist(df[, c("pickup1", "pickup2", "pickup3", "pickup4")]), 0.10, na.rm = TRUE)
+notif_cutoff   <- quantile(unlist(df[, c("notif1", "notif2", "notif3", "notif4")]), 0.10, na.rm = TRUE)
+
+# Step 2: Clean data
+library(dplyr)
+
+
+# Step 2: Conditional cleaning — drop only if all 3 at a timepoint are below threshold
+df_clean <- df %>%
+  mutate(
+    clean_total_minutes_1 = ifelse(total_minutes_1 < minutes_cutoff & pickup1 < pickup_cutoff & notif1 < notif_cutoff, NA, total_minutes_1),
+    clean_pickup1         = ifelse(pickup1 < pickup_cutoff & total_minutes_1 < minutes_cutoff & notif1 < notif_cutoff, NA, pickup1),
+    clean_notif1          = ifelse(notif1 < notif_cutoff & total_minutes_1 < minutes_cutoff & pickup1 < pickup_cutoff, NA, notif1),
+
+    clean_total_minutes_2 = ifelse(total_minutes_2 < minutes_cutoff & pickup2 < pickup_cutoff & notif2 < notif_cutoff, NA, total_minutes_2),
+    clean_pickup2         = ifelse(pickup2 < pickup_cutoff & total_minutes_2 < minutes_cutoff & notif2 < notif_cutoff, NA, pickup2),
+    clean_notif2          = ifelse(notif2 < notif_cutoff & total_minutes_2 < minutes_cutoff & pickup2 < pickup_cutoff, NA, notif2),
+
+    clean_total_minutes_3 = ifelse(total_minutes_3 < minutes_cutoff & pickup3 < pickup_cutoff & notif3 < notif_cutoff, NA, total_minutes_3),
+    clean_pickup3         = ifelse(pickup3 < pickup_cutoff & total_minutes_3 < minutes_cutoff & notif3 < notif_cutoff, NA, pickup3),
+    clean_notif3          = ifelse(notif3 < notif_cutoff & total_minutes_3 < minutes_cutoff & pickup3 < pickup_cutoff, NA, notif3),
+
+    clean_total_minutes_4 = ifelse(total_minutes_4 < minutes_cutoff & pickup4 < pickup_cutoff & notif4 < notif_cutoff, NA, total_minutes_4),
+    clean_pickup4         = ifelse(pickup4 < pickup_cutoff & total_minutes_4 < minutes_cutoff & notif4 < notif_cutoff, NA, pickup4),
+    clean_notif4          = ifelse(notif4 < notif_cutoff & total_minutes_4 < minutes_cutoff & pickup4 < pickup_cutoff, NA, notif4)
+  )
+
+
+df_result <- df_clean %>%
+  rowwise() %>%
+  mutate(
+    avg_minutes_clean = mean(c_across(starts_with("clean_total_minutes_")), na.rm = TRUE),
+    avg_pickups_clean = mean(c_across(starts_with("clean_pickup")), na.rm = TRUE),
+    avg_notifs_clean  = mean(c_across(starts_with("clean_notif")), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  select(record_id, PID, avg_minutes_clean, avg_pickups_clean, avg_notifs_clean)
+
+
+```
+
+QULality control data wiped check: 
+### checking if we ended up breaking up participant data - only happened a bit- looks good
+
+```{r}
+library(dplyr)
+
+# This assumes you already have df (original) and df_clean (after applying cleaning steps)
+
+df_qc <- df %>%
+  select(PID, record_id,
+         total_minutes_1:total_minutes_4,
+         pickup1:pickup4,
+         notif1:notif4) %>%
+  mutate(
+    # Had *any* raw values
+    had_minutes_data = rowSums(!is.na(across(c(total_minutes_1, total_minutes_2, total_minutes_3, total_minutes_4)))) > 0,
+    had_pickups_data = rowSums(!is.na(across(c(pickup1, pickup2, pickup3, pickup4)))) > 0,
+    had_notifs_data  = rowSums(!is.na(across(c(notif1, notif2, notif3, notif4)))) > 0
+  )
+
+df_clean_flags <- df_clean %>%
+  mutate(
+    all_minutes_removed = rowSums(is.na(across(starts_with("clean_total_minutes_")))) == 4,
+    all_pickups_removed = rowSums(is.na(across(starts_with("clean_pickup")))) == 4,
+    all_notifs_removed  = rowSums(is.na(across(starts_with("clean_notif")))) == 4
+  ) %>%
+  select(PID, record_id, starts_with("all_"))
+
+# Merge raw + clean flags
+df_qc_flagged <- df_qc %>%
+  left_join(df_clean_flags, by = c("PID", "record_id")) %>%
+  mutate(
+    minutes_removed_after_having_data = had_minutes_data & all_minutes_removed,
+    pickups_removed_after_having_data = had_pickups_data & all_pickups_removed,
+    notifs_removed_after_having_data  = had_notifs_data & all_notifs_removed
+  ) %>%
+  filter(minutes_removed_after_having_data |
+         pickups_removed_after_having_data |
+         notifs_removed_after_having_data) %>%
+  select(PID, record_id,
+         minutes_removed_after_having_data,
+         pickups_removed_after_having_data,
+         notifs_removed_after_having_data)
+
+# View who's affected
+print(df_qc_flagged)
+
+
+
+df_clean %>%
+  mutate(
+    # Raw value counts
+    n_minutes_raw  = rowSums(!is.na(df[, c("total_minutes_1", "total_minutes_2", "total_minutes_3", "total_minutes_4")])),
+    n_pickups_raw  = rowSums(!is.na(df[, c("pickup1", "pickup2", "pickup3", "pickup4")])),
+    n_notifs_raw   = rowSums(!is.na(df[, c("notif1", "notif2", "notif3", "notif4")])),
+
+    # Cleaned value counts
+    n_minutes_clean = rowSums(!is.na(across(starts_with("clean_total_minutes_")))),
+    n_pickups_clean = rowSums(!is.na(across(starts_with("clean_pickup")))),
+    n_notifs_clean  = rowSums(!is.na(across(starts_with("clean_notif"))))
+  ) %>%
+  summarise(
+    minutes_under2 = sum(n_minutes_raw > 0 & n_minutes_clean < 2),
+    pickups_under2 = sum(n_pickups_raw > 0 & n_pickups_clean < 2),
+    notifs_under2  = sum(n_notifs_raw > 0 & n_notifs_clean < 2)
+  )
+
+
+```
+
+##### how many avgs. do we have left?
+##### looks like a lot - good to go ~50 of each score!!!!! ##########
+
+```{r}
+df_result %>%
+  summarise(
+    n_avg_minutes  = sum(!is.na(avg_minutes_clean)),
+    n_avg_pickups  = sum(!is.na(avg_pickups_clean)),
+    n_avg_notifs   = sum(!is.na(avg_notifs_clean))
+  )
+
+```
+
+
+```{r}
+write.csv(df_result, "/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/screen_time_data.csv", row.names = FALSE)
+
+```
+
+

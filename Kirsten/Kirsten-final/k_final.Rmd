@@ -1,0 +1,505 @@
+---
+title: "Kirsten_Final"
+author: "Daniel Zweben"
+date: "2025-06-05"
+output: html_document
+---
+
+```{r}
+
+library(dplyr)
+df1 <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Kirsten/Kirsten-final/LItesubstanceabuse.csv")
+```
+
+
+```{r}
+# Split df1 into df3k and df2k based on Age
+df3k <- df1[df1$participant_age >= 18, ]
+df2k <- df1[df1$participant_age >= 15 & df1$participant_age < 18, ]
+
+# Show number of rows in each
+cat("Number of rows in df3k (Age > 18):", nrow(df3k), "\n")
+cat("Number of rows in df2k (15 <= Age < 18):", nrow(df2k), "\n")
+
+```
+
+
+#### loop shapleys through 3rd cohorts and through alc and weed and nicotine DVs
+
+```{r}
+# Load required packages
+library(ShapleyValue)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Define your dependent variables
+dvs <- c("nicotine_pca_score", "marijuana_pca_score", "alcohol_pca_score")
+
+# Loop over each DV and compute Shapley values
+for (dv in dvs) {
+  
+  # Select the data
+  shap_df <- df3k %>%
+    dplyr::select(all_of(c(
+      dv,
+      "zuckerman.z",
+      "barrets.z",
+      "delay_discounting_indiff_z",
+      "texi_total.z"
+    ))) %>%
+    drop_na()
+  
+  # Define y (DV) and x (predictors)
+  y <- shap_df[[dv]]
+  x <- shap_df %>%
+    select(-all_of(dv))
+  
+  # Run Shapley value decomposition
+  shap_values <- shapleyvalue(y = y, x = x)
+  
+  # Convert to data frame and format
+  shap_df_out <- as.data.frame(shap_values)
+  percent_row <- round(as.numeric(shap_df_out[2, ]) * 100, 1)
+  shap_df_out[2, ] <- paste0(percent_row, "%")
+  rownames(shap_df_out) <- c("Shapley Value", "Percent of R²")
+  
+  # Print the table
+  cat("\n\n### Shapley Decomposition for:", dv, "\n")
+  shap_df_out %>%
+    kbl(align = "c", caption = paste("Shapley Value Decomposition for", dv)) %>%
+    kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+    print()
+}
+
+
+
+```
+
+
+```{r}
+# Load required packages
+library(ShapleyValue)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Define your dependent variables
+dvs <- c("nicotine_pca_score", "marijuana_pca_score", "alcohol_pca_score")
+
+# Loop over each DV and compute Shapley values
+for (dv in dvs) {
+  
+  # Select the data
+  shap_df <- df2k %>%
+    dplyr::select(all_of(c(
+      dv,
+      "zuckerman.z",
+      "barrets.z",
+      "delay_discounting_indiff_z",
+      "texi_total.z"
+    ))) %>%
+    drop_na()
+  
+  # Define y (DV) and x (predictors)
+  y <- shap_df[[dv]]
+  x <- shap_df %>%
+    select(-all_of(dv))
+  
+  # Run Shapley value decomposition
+  shap_values <- shapleyvalue(y = y, x = x)
+  
+  # Convert to data frame and format
+  shap_df_out <- as.data.frame(shap_values)
+  percent_row <- round(as.numeric(shap_df_out[2, ]) * 100, 1)
+  shap_df_out[2, ] <- paste0(percent_row, "%")
+  rownames(shap_df_out) <- c("Shapley Value", "Percent of R²")
+  
+  # Print the table
+  cat("\n\n### Shapley Decomposition for:", dv, "\n")
+  shap_df_out %>%
+    kbl(align = "c", caption = paste("Shapley Value Decomposition for", dv)) %>%
+    kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+    print()
+}
+
+
+
+```
+
+
+Correlation for each age group: 
+
+```{r}
+library(kableExtra)
+
+# Variables to include
+vars <- c(
+  "alcohol_pca_score",
+  "marijuana_pca_score",
+  "nicotine_pca_score",
+  "drug_use_ever",
+  "texi_total.z", 
+  "barrets.z", 
+  "Flanker_Z", 
+  "zuckerman.z", 
+  "delay_discounting_indiff_z", 
+  "rpi.z", 
+  "participant_age"
+)
+
+# Function to run the correlation + stars matrix
+run_correlation_matrix <- function(data, dataset_name) {
+  cat("\n==== Zero-order Correlations for", dataset_name, "====\n")
+
+  # Create a function to add stars for significance levels
+  add_stars <- function(p_value) {
+    if (p_value < 0.001) return("***")
+    else if (p_value < 0.01) return("**")
+    else if (p_value < 0.05) return("*")
+    else if (p_value < 0.1) return("†")
+    else return("")
+  }
+
+  # Select relevant vars
+  selected_vars <- subset(data, select = vars)
+
+  # Calculate correlation matrix
+  correlation_matrix <- cor(selected_vars, use = "pairwise.complete.obs")
+
+  # Define function to calculate correlation and p-value
+  correlation_pvalues <- function(x, y) {
+    test <- cor.test(x, y)
+    corr_value <- test$estimate
+    p_value <- test$p.value
+    formatted_p <- sprintf("%.4f", p_value)
+    return(list(corr = corr_value, p = formatted_p))
+  }
+
+  # Create matrix with stars (lower triangle only)
+  result <- outer(names(selected_vars), names(selected_vars), FUN = Vectorize(function(x, y) {
+    if (x == y) return("-")
+    else if (which(names(selected_vars) == x) < which(names(selected_vars) == y)) return("")
+    else {
+      res <- correlation_pvalues(selected_vars[[x]], selected_vars[[y]])
+      stars <- add_stars(as.numeric(res$p))
+      return(paste0(round(res$corr, 2), stars))
+    }
+  }))
+
+  # Also make a matrix with (p = ..., r = ...)
+  result_with_ps_and_rs <- outer(names(selected_vars), names(selected_vars), FUN = Vectorize(function(x, y) {
+    if (x == y) return("NA")
+    else {
+      res <- correlation_pvalues(selected_vars[[x]], selected_vars[[y]])
+      return(paste0("(p = ", res$p, ", r = ", round(res$corr, 3), ")"))
+    }
+  }))
+
+  # Labels for rows
+  row_labels <- c(
+    "1. Alcohol Use",
+    "2. Marijuana Use",
+    "3. Nicotine Use",
+    "4. Drug Use Ever",
+    "5. Executive Function (TEXI)",
+    "6. Impulsivity (Barretts)",
+    "7. Flanker",
+    "8. Sensation Seeking (Zuckerman)",
+    "9. Delay Discounting",
+    "10. Resistance to Peer Influence (RPI)",
+    "11. Age"
+  )
+
+  # Add row/column labels
+  rownames(result) <- row_labels
+  colnames(result) <- 1:length(vars)
+  rownames(result_with_ps_and_rs) <- row_labels
+  colnames(result_with_ps_and_rs) <- 1:length(vars)
+
+  # Convert to data frame
+  correlation_df <- as.data.frame(result)
+  correlation_df_with_ps_and_rs <- as.data.frame(result_with_ps_and_rs)
+
+  # Print table to Viewer
+  kable(correlation_df, format = "html", booktabs = TRUE, row.names = TRUE,
+        caption = paste0("Zero-order correlations for ", dataset_name)) %>%
+    kable_styling(full_width = FALSE, position = "center") %>%
+    footnote(general = "*** = p < .001, ** = p < .01, * = p < .05, † = marginally significant (0.05–0.1)",
+             general_title = "") %>%
+    print()
+
+  # Also print raw values (for console/export if needed)
+  cat("\n-- Raw p and r values --\n")
+  print(correlation_df_with_ps_and_rs)
+}
+
+
+```
+
+```{r}
+# Run for df2k
+run_correlation_matrix(df2k, "df2k (Age ≥ 15)")
+
+```
+
+```{r}
+# Run for df3k
+run_correlation_matrix(df3k, "df3k (Age > 18)")
+```
+
+
+Get descriptives for drug use to check if median splits will be possible
+(do those with no drug use history have a PCA drug score?)
+
+```{r}
+# Function to get descriptives and completeness breakdown
+summarize_drug_use_ever <- function(df, label) {
+  cat("\n====", label, "====\n")
+
+  # Descriptives
+  cat("\n-- Descriptives for drug_use_ever --\n")
+  print(table(df$drug_use_ever, useNA = "ifany"))
+  print(summary(df$drug_use_ever))
+
+  # Function to count complete vs missing per group
+  check_completeness <- function(var) {
+    df %>%
+      group_by(drug_use_ever) %>%
+      summarize(
+        HasValue = sum(!is.na(.data[[var]])),
+        Missing = sum(is.na(.data[[var]])),
+        Total = n()
+      ) %>%
+      mutate(Variable = var)
+  }
+
+  # Run for both alcohol and marijuana PCA scores
+  alc <- check_completeness("alcohol_pca_score")
+  weed <- check_completeness("marijuana_pca_score")
+
+  # Combine and show
+  result <- bind_rows(alc, weed)
+  print(result)
+}
+
+# Run for df2k (Age >= 15)
+summarize_drug_use_ever(df2k, "df2k (Age ≥ 15)")
+
+# Run for df3k (Age > 18)
+summarize_drug_use_ever(df3k, "df3k (Age > 18)")
+
+```
+This showed that in both cohorts there were about 30 ppl who never tried a drug but that the yrbs scoring STILL gave them alochol and weed  scores which means we can capture the whole sample in both groups by splitting weed/alc into high and low users (around the median) which will end up looking like frequent vs light/no-use
+
+
+split weed, nicotine, and alcohol into categories: 
+
+```{r}
+median_split <- function(df, var_name, new_var_name) {
+  # Only compute median from non-missing values
+  med <- median(df[[var_name]], na.rm = TRUE)
+
+  # Create binary split: 1 = high, 0 = low
+  df[[new_var_name]] <- ifelse(!is.na(df[[var_name]]) & df[[var_name]] > med, 1, 0)
+  df[[new_var_name]][is.na(df[[var_name]])] <- NA  # Preserve NAs
+
+  # Print group sizes
+  cat(paste0("\n", new_var_name, " in dataset:\n"))
+  print(table(df[[new_var_name]], useNA = "ifany"))
+
+  # Print mean age for each group (0 and 1 only)
+  cat("\nMean participant age by group for", new_var_name, ":\n")
+  print(df %>%
+          filter(!is.na(.data[[new_var_name]])) %>%
+          group_by(.data[[new_var_name]]) %>%
+          summarize(mean_age = round(mean(participant_age, na.rm = TRUE), 2),
+                    sd_age = round(sd(participant_age, na.rm = TRUE), 2),
+                    n = n()) %>%
+          rename(group = 1))
+
+  return(df)
+}
+
+# Apply to df2k
+cat("=== df2k (Age ≥ 15) ===")
+df2k <- median_split(df2k, "alcohol_pca_score", "alcohol_scale")
+df2k <- median_split(df2k, "marijuana_pca_score", "weed_scale")
+df2k <- median_split(df2k, "nicotine_pca_score", "nicotine_scale")
+
+# Apply to df3k
+cat("\n=== df3k (Age > 18) ===")
+df3k <- median_split(df3k, "alcohol_pca_score", "alcohol_scale")
+df3k <- median_split(df3k, "marijuana_pca_score", "weed_scale")
+df3k <- median_split(df3k, "nicotine_pca_score", "nicotine_scale")
+
+```
+
+
+
+merge df2k and df3k for combined mancova analyses: 
+```{r}
+df_combined <- rbind(df2k, df3k)
+
+```
+
+run mancova for weed and alochol!
+
+```{r}
+library(dplyr)
+library(purrr)
+library(broom)
+library(tibble)
+
+# Define DV variables
+dv_vars <- c("delay_discounting_indiff_z", "texi_total.z", "barrets.z", "zuckerman.z")
+
+# === Helper function for MANCOVA + ANCOVA ===
+run_mancova_block <- function(df, group_var) {
+  # Step 1: Prepare data
+  df_subset <- df[, c(dv_vars, group_var, "participant_age")]
+  df_subset <- na.omit(df_subset)
+
+  # Step 2: MANCOVA
+  formula_mancova <- as.formula(paste0("as.matrix(df_subset[, dv_vars]) ~ ", group_var, " * participant_age"))
+  mancova_model <- manova(formula_mancova, data = df_subset)
+  cat("\n=== Multivariate MANCOVA: ", group_var, " × Age ===\n")
+  print(summary(mancova_model, test = "Pillai"))
+
+  # Step 3: ANCOVAs
+  ancova_results <- map(dv_vars, function(dv) {
+    formula_ancova <- as.formula(paste0(dv, " ~ ", group_var, " * participant_age"))
+    model <- aov(formula_ancova, data = df_subset)
+    tidy(model)
+  })
+
+  # Step 4: Combine and correct p-values
+  ancova_df <- bind_rows(ancova_results, .id = "DV") %>%
+    filter(term != "Residuals") %>%
+    mutate(p_adj = p.adjust(p.value, method = "BH"))
+
+  # Step 5: Print final ANCOVA results
+  cat("\n=== FDR-Corrected ANCOVAs: ", group_var, " ===\n")
+  print(ancova_df)
+}
+
+# Run for weed
+run_mancova_block(df_combined, "weed_scale")
+
+# Run for alcohol
+run_mancova_block(df_combined, "alcohol_scale")
+
+
+```
+
+Age Moderated the Relationship between alcohol and sensation seeking
+Slope analysis to see WHICH AGE GROUP was the more sig. one 
+```{r}
+# Load package
+library(interactions)
+
+# Fit linear model
+model <- lm(zuckerman.z ~ alcohol_scale * participant_age, data = df_combined)
+
+# Run simple slopes
+sim_slopes(model, pred = "alcohol_scale", modx = "participant_age", johnson_neyman = TRUE)
+
+```
+
+
+
+
+Nictoine!!
+
+```{r}
+library(dplyr)
+library(purrr)
+library(broom)
+library(tibble)
+
+
+# Step 1: Define cognitive DVs
+dv_vars <- c("delay_discounting_indiff_z", "texi_total.z", "barrets.z", "zuckerman.z")
+
+# Step 2: Helper function to run MANCOVA and ANCOVAs
+run_mancova_block <- function(df, group_var) {
+  # Prepare subset
+  df_subset <- df[, c(dv_vars, group_var, "participant_age")]
+  df_subset <- na.omit(df_subset)
+
+  # Run MANCOVA
+  formula_mancova <- as.formula(paste0("as.matrix(df_subset[, dv_vars]) ~ ", group_var, " * participant_age"))
+  mancova_model <- manova(formula_mancova, data = df_subset)
+  cat("\n=== Multivariate MANCOVA: ", group_var, " × Age ===\n")
+  print(summary(mancova_model, test = "Pillai"))
+
+  # Run ANCOVAs
+  ancova_results <- map(dv_vars, function(dv) {
+    formula_ancova <- as.formula(paste0(dv, " ~ ", group_var, " * participant_age"))
+    model <- aov(formula_ancova, data = df_subset)
+    tidy(model)
+  })
+
+  # Combine + FDR correct
+  ancova_df <- bind_rows(ancova_results, .id = "DV") %>%
+    filter(term != "Residuals") %>%
+    mutate(p_adj = p.adjust(p.value, method = "BH"))
+
+  # Output
+  cat("\n=== FDR-Corrected ANCOVAs: ", group_var, " ===\n")
+  print(ancova_df)
+}
+
+# Step 3: Run MANCOVA + ANCOVAs for nicotine group
+run_mancova_block(df_combined, "nicotine_scale")
+
+
+```
+
+
+
+calculate descriptives: 
+
+```{r}
+# Define category-to-number mappings
+days_map <- c(
+  "0 days" = 0,
+  "1 or 2 days" = 1.5,
+  "3 to 5 days" = 4,
+  "6 to 9 days" = 7.5,
+  "10 to 19 days" = 14.5,
+  "20 to 29 days" = 24.5,
+  "All 30 days" = 30
+)
+
+weed_map <- c(
+  "0 times" = 0,
+  "1 or 2 times" = 1.5,
+  "3 to 9 times" = 6,
+  "10 to 19 times" = 14.5,
+  "20 to 39 times" = 29.5,
+  "40 or more times" = 45
+)
+
+# Function to calculate average substance use
+calculate_use_stats <- function(df, label) {
+  df$smoke_days_num   <- days_map[df$how.many.days.in.the.last.month.did.you.smoke.at.least.1.cigarette]
+  df$vape_days_num    <- days_map[df$how.many.days.in.the.last.month.did.you.vape.at.least.1.time]
+  df$alcohol_days_num <- days_map[df$how.many.days.in.the.last.month.did.you.drink.alcohol.at.least.1.time]
+  df$weed_times_num   <- weed_map[df$how.many.times.did.you.use.marijuana.in.the.last.30.days]
+
+  cat("\n--- Averages for", label, "---\n")
+  cat("Average smoking days:       ", mean(df$smoke_days_num, na.rm = TRUE), "\n")
+  cat("Average vaping days:        ", mean(df$vape_days_num, na.rm = TRUE), "\n")
+  cat("Average drinking days:      ", mean(df$alcohol_days_num, na.rm = TRUE), "\n")
+  cat("Average marijuana use (times):", mean(df$weed_times_num, na.rm = TRUE), "\n")
+}
+
+# Run for both age groups
+calculate_use_stats(df2k, "df2k (15–17)")
+calculate_use_stats(df3k, "df3k (18+)")
+
+
+```
+
+

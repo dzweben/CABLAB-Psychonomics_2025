@@ -1,0 +1,478 @@
+---
+title: "Psychonomics"
+output: html_document
+date: "2025-06-03"
+---
+
+###we are bringing the data!!###
+
+```{r}
+df1 <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Megan/final/final-items.csv")
+
+```
+
+
+
+```{r}
+# Load libraries
+library(Hmisc)
+library(knitr)
+library(kableExtra)
+
+# Define variables
+vars <- c("Age", 
+           "avg_minutes_clean.z",
+          "Flanker_Z", "texi_sum_score.z", "screen_behavior_pca_score",
+          "dprime.z", "barrets.z", "sas.z",
+          "delay_discounting_indiff_z", "sleep_composite.z", "bodyhealth.z")
+
+data_sub <- df1[, vars]
+
+# Compute correlations
+corr_res <- rcorr(as.matrix(data_sub), type = "pearson")
+r_mat <- round(corr_res$r, 2)
+p_mat <- corr_res$P
+
+# Function for stars
+get_sig_symbol <- function(p) {
+  if (is.na(p)) return("")
+  else if (p < 0.001) return("***")
+  else if (p < 0.01) return("**")
+  else if (p < 0.05) return("*")
+  else if (p < 0.09) return("†")
+  else return("")
+}
+
+# Build labeled variable names
+var_numbers <- seq_along(vars)
+var_labels <- paste0(var_numbers, ". ", vars)
+
+# Create blank output matrix
+output_mat <- matrix("", nrow = length(vars), ncol = length(vars))
+rownames(output_mat) <- var_labels
+colnames(output_mat) <- as.character(var_numbers)
+
+# Fill lower triangle with r + stars
+for (i in 2:length(vars)) {
+  for (j in 1:(i - 1)) {
+    sig <- get_sig_symbol(p_mat[i, j])
+    output_mat[i, j] <- paste0(r_mat[i, j], sig)
+  }
+}
+
+# Convert to data frame and display in Viewer
+output_df <- as.data.frame(output_mat)
+
+kable(output_df, format = "html", escape = FALSE, align = "l") %>%
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(height = "600px")
+
+
+```
+
+```{r}
+# Load required libraries
+library(mediation)
+library(dplyr)
+
+# Prepare data: convert relevant variables to numeric and filter for complete cases including Age
+mediation_df <- df1 %>%
+  mutate(
+    screen_behavior_pca_score = as.numeric(screen_behavior_pca_score),
+    sleep_composite.z = as.numeric(sleep_composite.z),
+    texi_sum_score.z = as.numeric(texi_sum_score.z),
+    barrets.z = as.numeric(barrets.z),
+    Age = as.numeric(Age)
+  ) %>%
+  filter(
+    !is.na(screen_behavior_pca_score),
+    !is.na(sleep_composite.z),
+    !is.na(texi_sum_score.z),
+    !is.na(barrets.z),
+    !is.na(Age)
+  )
+
+# -------- Barretts → Sleep → Screen Mediation --------
+med_model_barret <- lm(sleep_composite.z ~ screen_behavior_pca_score + Age, data = mediation_df)
+out_model_barret <- lm(barrets.z ~ screen_behavior_pca_score + sleep_composite.z + Age, data = mediation_df)
+
+mediation_barret <- mediate(
+  med_model_barret, out_model_barret,
+  treat = "screen_behavior_pca_score",
+  mediator = "sleep_composite.z",
+  boot = TRUE, sims = 1000
+)
+
+# -------- TEXI → Sleep → Screen Mediation --------
+med_model_texi <- lm(sleep_composite.z ~ screen_behavior_pca_score + Age, data = mediation_df)
+out_model_texi <- lm(texi_sum_score.z ~ screen_behavior_pca_score + sleep_composite.z + Age, data = mediation_df)
+
+mediation_texi <- mediate(
+  med_model_texi, out_model_texi,
+  treat = "screen_behavior_pca_score",
+  mediator = "sleep_composite.z",
+  boot = TRUE, sims = 1000
+)
+
+# -------- Print results --------
+cat("\n=== Mediation: Screen → Sleep → Barretts (Controlling for Age) ===\n")
+summary(mediation_barret)
+
+cat("\n=== Mediation: Screen → Sleep → TEXI (Controlling for Age) ===\n")
+summary(mediation_texi)
+
+
+# -----------------------------------------------
+# Second set: Body Health as Mediator
+# -----------------------------------------------
+
+# Prepare data again (in case some cases were filtered differently)
+mediation_df <- df1 %>%
+  mutate(
+    screen_behavior_pca_score = as.numeric(screen_behavior_pca_score),
+    bodyhealth.z = as.numeric(bodyhealth.z),
+    texi_sum_score.z = as.numeric(texi_sum_score.z),
+    barrets.z = as.numeric(barrets.z),
+    Age = as.numeric(Age)
+  ) %>%
+  filter(
+    !is.na(screen_behavior_pca_score),
+    !is.na(bodyhealth.z),
+    !is.na(texi_sum_score.z),
+    !is.na(barrets.z),
+    !is.na(Age)
+  )
+
+# -------- Barretts → Body Health → Screen Mediation --------
+med_model_barret <- lm(bodyhealth.z ~ screen_behavior_pca_score + Age, data = mediation_df)
+out_model_barret <- lm(barrets.z ~ screen_behavior_pca_score + bodyhealth.z + Age, data = mediation_df)
+
+mediation_barret <- mediate(
+  med_model_barret, out_model_barret,
+  treat = "screen_behavior_pca_score",
+  mediator = "bodyhealth.z",
+  boot = TRUE, sims = 1000
+)
+
+# -------- TEXI → Body Health → Screen Mediation --------
+med_model_texi <- lm(bodyhealth.z ~ screen_behavior_pca_score + Age, data = mediation_df)
+out_model_texi <- lm(texi_sum_score.z ~ screen_behavior_pca_score + bodyhealth.z + Age, data = mediation_df)
+
+mediation_texi <- mediate(
+  med_model_texi, out_model_texi,
+  treat = "screen_behavior_pca_score",
+  mediator = "bodyhealth.z",
+  boot = TRUE, sims = 1000
+)
+
+# -------- Print results --------
+cat("\n=== Mediation: Screen → Body Health → Barretts (Controlling for Age) ===\n")
+summary(mediation_barret)
+
+cat("\n=== Mediation: Screen → Body Health → TEXI (Controlling for Age) ===\n")
+summary(mediation_texi)
+
+```
+
+```{r}
+library(dplyr)
+
+# Step 1: Filter out only missing scores (keep zeros)
+df1_filtered <- df1 %>%
+  filter(!is.na(sas.z))
+
+# Step 2: Calculate the median (including 0s)
+sas_median <- median(df1_filtered$sas.z, na.rm = TRUE)
+
+# Step 3: Create the new group variable
+df1_filtered <- df1_filtered %>%
+  mutate(
+    sas_group = ifelse(sas.z > sas_median, "High SAS", "Low SAS")
+  ) %>%
+  dplyr::select(PID, sas_group)
+
+# Step 4: Join group variable back to full df
+df1 <- df1 %>%
+  distinct(PID, .keep_all = TRUE) %>%
+  left_join(df1_filtered, by = "PID")
+
+
+```
+
+
+```{r}
+
+library(dplyr)
+
+
+
+# Step 1: Compute median of avg_minutes_clean.z
+median_minutes <- median(df1$avg_minutes_clean.z, na.rm = TRUE)
+
+# Step 2: Create a new binary class variable based on the median
+df1 <- df1 %>%
+  mutate(Minutes_class = case_when(
+    is.na(avg_minutes_clean.z) ~ NA_integer_,
+    avg_minutes_clean.z <= median_minutes ~ 1,  # Low use
+    avg_minutes_clean.z > median_minutes ~ 2    # High use
+  ))
+
+# Now df1 has a new column 'Minutes_class' with 1 (low), 2 (high), or NA
+
+
+```
+
+```{r}
+
+library(dplyr)
+
+# Step 1: Recode objective phone use class into descriptive labels
+df1 <- df1 %>%
+  rename(obj_class = Minutes_class) %>%
+  mutate(
+    obj_class_desc = case_when(
+      obj_class == 1 ~ "Low_Usage",
+      obj_class == 2 ~ "High_Usage",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Step 2: Recode subjective addiction scale group into class variable
+df1 <- df1 %>%
+  rename(sas_class_desc = sas_group) %>%
+  mutate(
+    sas_class = case_when(
+      sas_class_desc == "Low SAS"  ~ 1,
+      sas_class_desc == "High SAS" ~ 2,
+      TRUE ~ NA_real_
+    )
+  )
+
+# Step 3: Reorder SAS class columns for better readability
+df1 <- df1 %>%
+  relocate(sas_class, .after = sas_class_desc)
+
+# Step 4: Reorder objective class columns similarly
+df1 <- df1 %>%
+  relocate(obj_class, .after = obj_class_desc)
+
+# Step 5: Conditionally recode NAs for class variables to "No_Phone" or 0 
+# — only if des_own == 0 (i.e., participant doesn't own a phone); 
+# otherwise, keep NAs unchanged
+df1 <- df1 %>%
+  mutate(
+    sas_class_desc = ifelse(is.na(sas_class_desc) & des_own == 0, "No_Phone", sas_class_desc),
+    sas_class      = ifelse(is.na(sas_class)      & des_own == 0, 0, sas_class),
+    obj_class_desc = ifelse(is.na(obj_class_desc) & des_own == 0, "No_Phone", obj_class_desc),
+    obj_class      = ifelse(is.na(obj_class)      & des_own == 0, 0, obj_class)
+  )
+
+
+
+
+
+
+```
+
+##############################################  MODERATIONS ########################################################### 
+sas - sleep
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(car)       # for MANCOVA/ANCOVA
+library(broom)     # for tidy model outputs
+library(purrr)     # to loop over DVs
+library(stats)     # for p.adjust
+
+# Step 1: Prepare data
+df1 <- df1 %>%
+  mutate(
+    sas_class = factor(sas_class, levels = c(2, 1, 0)),  # high to low order
+    Age = as.numeric(Age),
+    sleep_composite.z = as.numeric(sleep_composite.z)
+  )
+
+# Step 2: Select dependent variables
+dv_vars <- c("barrets.z", "delay_discounting_indiff_z", "texi_sum_score.z", "Flanker_Z", "dprime.z")
+
+# Step 3: Filter for complete cases
+df_mancova <- df1 %>%
+  dplyr::select(all_of(dv_vars), sas_class, sleep_composite.z, Age) %>%
+  na.omit()
+
+# Step 4: Run MANCOVA
+mancova_model <- manova(
+  as.matrix(df_mancova[, dv_vars]) ~ sas_class * sleep_composite.z + Age,
+  data = df_mancova
+)
+
+# Step 5: Print multivariate results
+cat("\n=== Multivariate MANCOVA (Pillai’s Trace) ===\n")
+print(summary(mancova_model, test = "Pillai"))
+
+# Step 6: Run separate ANCOVAs for each DV with same predictors
+ancova_results <- map(dv_vars, function(dv) {
+  model <- aov(as.formula(paste(dv, "~ sas_class * sleep_composite.z + Age")), data = df_mancova)
+  tidy(model)
+})
+
+# Step 7: Combine results and adjust p-values
+ancova_combined <- bind_rows(ancova_results, .id = "DV") %>%
+  filter(term != "Residuals") %>%
+  mutate(p_adj = p.adjust(p.value, method = "holm"))
+
+# Step 8: Print tidy ANCOVA results with Holm correction
+cat("\n=== ANCOVA Results with Holm-corrected p-values ===\n")
+print(ancova_combined)
+
+
+
+```
+
+sas-body health
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(car)
+library(broom)
+library(purrr)
+library(stats)
+
+# Step 1: Prepare data
+df1 <- df1 %>%
+  mutate(
+    sas_class = factor(sas_class, levels = c(2, 1, 0)),  # high to low order
+    Age = as.numeric(Age),
+    bodyhealth.z = as.numeric(bodyhealth.z)              # use body health
+  )
+
+# Step 2: Select dependent variables
+dv_vars <- c("barrets.z", "delay_discounting_indiff_z", "texi_sum_score.z", "Flanker_Z", "dprime.z")
+
+# Step 3: Filter for complete cases
+df_mancova <- df1 %>%
+  dplyr::select(all_of(dv_vars), sas_class, bodyhealth.z, Age) %>%
+  na.omit()
+
+# Step 4: Run MANCOVA
+mancova_model <- manova(
+  as.matrix(df_mancova[, dv_vars]) ~ sas_class * bodyhealth.z + Age,
+  data = df_mancova
+)
+
+# Step 5: Print multivariate results
+cat("\n=== Multivariate MANCOVA (Pillai’s Trace) ===\n")
+print(summary(mancova_model, test = "Pillai"))
+
+# Step 6: Run separate ANCOVAs for each DV with same predictors
+ancova_results <- map(dv_vars, function(dv) {
+  model <- aov(as.formula(paste(dv, "~ sas_class * bodyhealth.z + Age")), data = df_mancova)
+  tidy(model)
+})
+
+# Step 7: Combine results and adjust p-values
+ancova_combined <- bind_rows(ancova_results, .id = "DV") %>%
+  filter(term != "Residuals") %>%
+  mutate(p_adj = p.adjust(p.value, method = "holm"))
+
+# Step 8: Print tidy ANCOVA results with Holm correction
+cat("\n=== ANCOVA Results with Holm-corrected p-values ===\n")
+print(ancova_combined)
+
+```
+
+
+obj - sleep
+
+
+```{r}
+# Step 1: Prepare data
+df1 <- df1 %>%
+  mutate(
+    obj_class = factor(obj_class, levels = c(2, 1, 0)),  # High to low
+    Age = as.numeric(Age),
+    sleep_composite.z = as.numeric(sleep_composite.z)
+  )
+
+# Step 2: Select DVs
+dv_vars <- c("barrets.z", "delay_discounting_indiff_z", "texi_sum_score.z", "Flanker_Z", "dprime.z")
+
+# Step 3: Filter for complete cases
+df_mancova <- df1 %>%
+  dplyr::select(all_of(dv_vars), obj_class, sleep_composite.z, Age) %>%
+  na.omit()
+
+# Step 4: Run MANCOVA
+mancova_model <- manova(
+  as.matrix(df_mancova[, dv_vars]) ~ obj_class * sleep_composite.z + Age,
+  data = df_mancova
+)
+
+# Step 5: Print multivariate results
+cat("\n=== Multivariate MANCOVA (Pillai’s Trace) ===\n")
+print(summary(mancova_model, test = "Pillai"))
+
+# Step 6: Run separate ANCOVAs
+ancova_results <- map(dv_vars, function(dv) {
+  model <- aov(as.formula(paste(dv, "~ obj_class * sleep_composite.z + Age")), data = df_mancova)
+  tidy(model)
+})
+
+# Step 7: Combine and correct p-values
+ancova_combined <- bind_rows(ancova_results, .id = "DV") %>%
+  filter(term != "Residuals") %>%
+  mutate(p_adj = p.adjust(p.value, method = "holm"))
+
+# Step 8: Print ANCOVA results
+cat("\n=== ANCOVA Results with Holm-corrected p-values ===\n")
+print(ancova_combined)
+
+```
+
+obj - body health
+
+```{r}
+# Step 1: Prepare data
+df1 <- df1 %>%
+  mutate(
+    obj_class = factor(obj_class, levels = c(2, 1, 0)),  # High to low
+    Age = as.numeric(Age),
+    bodyhealth.z = as.numeric(bodyhealth.z)
+  )
+
+# Step 2: Select DVs
+dv_vars <- c("barrets.z", "delay_discounting_indiff_z", "texi_sum_score.z", "Flanker_Z", "dprime.z")
+
+# Step 3: Filter for complete cases
+df_mancova <- df1 %>%
+  dplyr::select(all_of(dv_vars), obj_class, bodyhealth.z, Age) %>%
+  na.omit()
+
+# Step 4: Run MANCOVA
+mancova_model <- manova(
+  as.matrix(df_mancova[, dv_vars]) ~ obj_class * bodyhealth.z + Age,
+  data = df_mancova
+)
+
+# Step 5: Print multivariate results
+cat("\n=== Multivariate MANCOVA (Pillai’s Trace) ===\n")
+print(summary(mancova_model, test = "Pillai"))
+
+# Step 6: Run separate ANCOVAs
+ancova_results <- map(dv_vars, function(dv) {
+  model <- aov(as.formula(paste(dv, "~ obj_class * bodyhealth.z + Age")), data = df_mancova)
+  tidy(model)
+})
+
+# Step 7: Combine and correct p-values
+ancova_combined <- bind_rows(ancova_results, .id = "DV") %>%
+  filter(term != "Residuals") %>%
+  mutate(p_adj = p.adjust(p.value, method = "holm"))
+
+# Step 8: Print ANCOVA results
+cat("\n=== ANCOVA Results with Holm-corrected p-values ===\n")
+print(ancova_combined)
+
+```
