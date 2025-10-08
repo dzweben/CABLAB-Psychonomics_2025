@@ -14,7 +14,7 @@ This repo contains **two independent analysis tracks** plus shared scoring pipel
 ---
 <img src="images/icon.png" alt="icon" width="820">
 
-## Directory Layout
+## Directory Layout:
 
 ```
 Psychonomics_2025/
