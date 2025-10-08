@@ -10,7 +10,6 @@ This repo contains **two independent analysis tracks** plus shared scoring pipel
 - **Shared scoring** for TEXI (executive functioning) and ARSQ (rejection sensitivity), and the YRBS-derived **substance PCA** dataset used by **Kirsten**.  
 - **Danny** — abstract and submission materials.
 
-> Note: Kirsten’s project is **not** about smartphones. It analyzes **substance use** (alcohol, marijuana, nicotine) and **cognitive predictors** across development.
 
 ---
 <img src="images/icon.png" alt="icon" width="820">
