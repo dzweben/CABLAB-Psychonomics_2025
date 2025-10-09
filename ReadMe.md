@@ -8,7 +8,7 @@ This repo contains **two independent analysis tracks** plus shared scoring pipel
 - **Kirsten — Substance Use & Cognition (teens vs. young adults)**  
 - **Megan — Digital Immersion, Executive Functioning, and Health (youth)**  
 - **Shared scoring** for TEXI (executive functioning) and ARSQ (rejection sensitivity), and the YRBS-derived **substance PCA** dataset used by **Kirsten**.  
-- **Danny** — abstract and submission materials for the irrelavent sound effect study
+- **Danny** — abstract and submission materials for the irrelavent sound effect study.
 
 
 ---
