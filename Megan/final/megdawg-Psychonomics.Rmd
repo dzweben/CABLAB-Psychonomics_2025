@@ -228,7 +228,7 @@ library(dplyr)
 
 # Step 1: Recode objective phone use class into descriptive labels
 df1 <- df1 %>%
-  rename(obj_class = Minutes_class) %>%
+  dplyr::rename(obj_class = Minutes_class) %>%
   mutate(
     obj_class_desc = case_when(
       obj_class == 1 ~ "Low_Usage",
@@ -239,7 +239,7 @@ df1 <- df1 %>%
 
 # Step 2: Recode subjective addiction scale group into class variable
 df1 <- df1 %>%
-  rename(sas_class_desc = sas_group) %>%
+  dplyr::rename(sas_class_desc = sas_group) %>%
   mutate(
     sas_class = case_when(
       sas_class_desc == "Low SAS"  ~ 1,
@@ -273,6 +273,11 @@ df1 <- df1 %>%
 
 
 ```
+
+
+
+
+
 
 ##############################################  MODERATIONS ########################################################### 
 sas - sleep
@@ -476,3 +481,88 @@ cat("\n=== ANCOVA Results with Holm-corrected p-values ===\n")
 print(ancova_combined)
 
 ```
+
+
+
+
+```{r}
+
+# -------------------------------------------------------------
+# STEP 1: Split digital immersion PCA score into high/low groups
+# -------------------------------------------------------------
+library(dplyr)
+
+df1 <- df1 %>%
+  mutate(
+    # Compute median digital immersion PCA score
+    digital_median = median(screen_behavior_pca_score, na.rm = TRUE),
+    
+    # Create grouping variable based on median
+    digital_class = case_when(
+      is.na(screen_behavior_pca_score) ~ NA_integer_,
+      screen_behavior_pca_score <= digital_median ~ 1,  # Low immersion
+      screen_behavior_pca_score >  digital_median ~ 2   # High immersion
+    ),
+    
+    # Create readable labels
+    digital_class_desc = case_when(
+      digital_class == 1 ~ "Low_Digital",
+      digital_class == 2 ~ "High_Digital",
+      TRUE ~ NA_character_
+    )
+  )
+```
+
+
+```{r}
+# -------------------------------------------------------------
+# STEP 2: MANCOVA with sleep moderation
+# -------------------------------------------------------------
+library(car)
+library(broom)
+library(purrr)
+library(stats)
+
+# Prepare data
+df1 <- df1 %>%
+  mutate(
+    digital_class = factor(digital_class, levels = c(2, 1)),  # High first
+    sleep_composite.z = as.numeric(sleep_composite.z),
+    Age = as.numeric(Age)
+  )
+
+# Define DVs
+dv_vars <- c("barrets.z", "delay_discounting_indiff_z", "texi_sum_score.z", 
+             "Flanker_Z", "dprime.z")
+
+# Filter for complete cases
+df_mancova <- df1 %>%
+  dplyr::select(all_of(dv_vars), digital_class, sleep_composite.z, Age) %>%
+  na.omit()
+
+# Run MANCOVA
+mancova_model <- manova(
+  as.matrix(df_mancova[, dv_vars]) ~ digital_class * sleep_composite.z + Age,
+  data = df_mancova
+)
+
+cat("\n=== Multivariate MANCOVA (Digital × Sleep) ===\n")
+print(summary(mancova_model, test = "Pillai"))
+
+# Follow-up ANCOVAs
+ancova_results <- map(dv_vars, function(dv) {
+  model <- aov(as.formula(paste(dv, "~ digital_class * sleep_composite.z + Age")),
+               data = df_mancova)
+  tidy(model)
+})
+
+# Combine results & adjust p-values
+ancova_combined <- bind_rows(ancova_results, .id = "DV") %>%
+  filter(term != "Residuals") %>%
+  mutate(p_adj = p.adjust(p.value, method = "holm"))
+
+cat("\n=== ANCOVA Results with Holm correction (Digital × Sleep) ===\n")
+print(ancova_combined)
+
+```
+
