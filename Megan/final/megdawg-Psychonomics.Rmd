@@ -566,3 +566,124 @@ print(ancova_combined)
 
 ```
 
+
+
+---------------
+```{r}
+# -------------------------------------------------------------
+# Test if sleep moderates the effect of digital immersion
+# on executive functioning (TEXI) and impulsivity (Barretts)
+# -------------------------------------------------------------
+library(dplyr)
+library(broom)
+library(interactions)  # for visualization & simple slopes (optional)
+
+# Prepare data
+mod_df <- df1 %>%
+  mutate(
+    screen_behavior_pca_score = as.numeric(screen_behavior_pca_score),
+    sleep_composite.z = as.numeric(sleep_composite.z),
+    texi_sum_score.z = as.numeric(texi_sum_score.z),
+    barrets.z = as.numeric(barrets.z),
+    Age = as.numeric(Age)
+  ) %>%
+  filter(
+    !is.na(screen_behavior_pca_score),
+    !is.na(sleep_composite.z),
+    !is.na(texi_sum_score.z),
+    !is.na(barrets.z),
+    !is.na(Age)
+  )
+
+# -------------------------------------------------------------
+# Model 1: TEXI (Executive Functioning)
+# -------------------------------------------------------------
+model_texi <- lm(texi_sum_score.z ~ screen_behavior_pca_score * sleep_composite.z + Age,
+                 data = mod_df)
+summary(model_texi)
+
+# -------------------------------------------------------------
+# Model 1: Barrets (Executive Functioning)
+# -------------------------------------------------------------
+model_barrets <- lm(barrets.z ~ screen_behavior_pca_score * sleep_composite.z + Age,
+                    data = mod_df)
+summary(model_barrets)
+```
+
+
+
+```{r}
+ # Count participants in the top quartile for both
+high_overlap <- df1 %>%
+     filter(digital_quartile == 4, sleep_quartile == 4)
+ 
+ n_overlap <- nrow(high_overlap)
+ total <- nrow(df1)
+ percent_overlap <- round(100 * n_overlap / total, 1)
+ 
+ cat("Top quartile overlap:", n_overlap, "out of", total, 
+     "participants (", percent_overlap, "%)\n")
+
+```
+
+```{r}
+# Load required package
+library(car)
+
+# -------------------------------------------------------------
+# Model 1: TEXI (Executive Functioning)
+# -------------------------------------------------------------
+model_texi <- lm(texi_sum_score.z ~ screen_behavior_pca_score * sleep_composite.z + Age,
+                 data = mod_df)
+
+cat("=== VIF for TEXI Model ===\n")
+vif_texi <- vif(model_texi)
+print(vif_texi)
+
+# Check if any VIF > 5 (moderate concern) or > 10 (serious concern)
+cat("\nVIF Warning Flags:\n")
+if(any(vif_texi > 10)) {
+  cat("SERIOUS: VIF > 10 detected!\n")
+  print(vif_texi[vif_texi > 10])
+} else if(any(vif_texi > 5)) {
+  cat("MODERATE: VIF > 5 detected\n")
+  print(vif_texi[vif_texi > 5])
+} else {
+  cat("All VIF values < 5 (acceptable)\n")
+}
+
+# -------------------------------------------------------------
+# Model 2: Barrets (Executive Functioning)
+# -------------------------------------------------------------
+model_barrets <- lm(barrets.z ~ screen_behavior_pca_score * sleep_composite.z + Age,
+                    data = mod_df)
+
+cat("\n\n=== VIF for Barrets Model ===\n")
+vif_barrets <- vif(model_barrets)
+print(vif_barrets)
+
+# Check if any VIF > 5 (moderate concern) or > 10 (serious concern)
+cat("\nVIF Warning Flags:\n")
+if(any(vif_barrets > 10)) {
+  cat("SERIOUS: VIF > 10 detected!\n")
+  print(vif_barrets[vif_barrets > 10])
+} else if(any(vif_barrets > 5)) {
+  cat("MODERATE: VIF > 5 detected\n")
+  print(vif_barrets[vif_barrets > 5])
+} else {
+  cat("All VIF values < 5 (acceptable)\n")
+}
+
+# -------------------------------------------------------------
+# Compare VIF values side by side
+# -------------------------------------------------------------
+cat("\n\n=== VIF Comparison ===\n")
+comparison <- data.frame(
+  Predictor = names(vif_texi),
+  TEXI_VIF = round(vif_texi, 2),
+  Barrets_VIF = round(vif_barrets, 2)
+)
+print(comparison)
+```
+
+
