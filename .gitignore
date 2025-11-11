@@ -1,0 +1,34 @@
+# Node modules (React app dependencies)
+node_modules/
+
+# Build output
+build/
+dist/
+
+# React cache
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+
+# R-related
+.Rhistory
+.RData
+.Rproj.user
+
+# Temporary files
+*.tmp
+*~

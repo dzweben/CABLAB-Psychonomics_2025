@@ -13,9 +13,11 @@ This repo contains **two independent analysis tracks** plus shared scoring pipel
 
 ---
 <img src="images/icon.png" alt="icon" width="820">
+<img src="images/mediate.png" alt="icon" width="820">
+<img src="images/correlate.png" alt="icon" width="820">
+
 
 ## Directory Layout:
-
 ```
 Psychonomics_2025/
 ├─ arsqdata/
@@ -63,7 +65,19 @@ Psychonomics_2025/
 │     ├─ megdawg-Psychonomics.Rmd
 │     ├─ final-items.csv
 │     ├─ Megan Abstract.docx
-│     └─ MeganPsychonomics-analyses.docx
+│     ├─ correlationheatmap.js
+│     ├─ mediationfigure.js
+│     ├─ MeganPsychonomics-analyses.docx
+│     └─ poster-figures/          # React visualization app
+│        ├─ src/
+│        │  ├─ App.js
+│        │  ├─ CorrelationHeatmap.jsx
+│        │  ├─ MediationFigure.jsx
+│        │  └─ index.css
+│        ├─ public/
+│        ├─ package.json
+│        ├─ tailwind.config.js
+│        └─ .gitignore
 │
 ├─ Danny/
 │  └─ Danny-Abstract-Psychonom.docx
@@ -156,7 +170,7 @@ Psychonomics_2025/
 - Compute 10th‑percentile cutoffs across months for minutes, pickups, notifications.
 - Set monthly triplets to `NA` **only if all three** are below cutoff (invalid sync).
 - Create per‑participant means: `avg_minutes_clean`, `avg_pickups_clean`, `avg_notifs_clean`.
-- QC flags ensure participants aren’t fully wiped.  
+- QC flags ensure participants aren't fully wiped.  
 - **Output:** `Megan/screen_time_data.csv`
 
 ### B) Project Prep & Digital PCA
@@ -175,6 +189,46 @@ Psychonomics_2025/
 - **MANCOVA/ANCOVA**: SAS class & objective use class × Sleep/Body Health predicting EF/impulsivity (age covariate).  
 - **Output write‑up:** `MeganPsychonomics-analyses.docx`
 
+### D) Poster Figures (React Visualizations)
+**Location:** `Megan/final/poster-figures/`
+
+Interactive visualizations built with React and Tailwind CSS for poster presentation:
+- **Correlation Heatmap**: Screen behavior correlations with executive function measures
+- **Mediation Figure**: Sleep & body health mediating screen behavior effects on EF
+
+**Setup & Running:**
+```bash
+cd Megan/final/poster-figures
+
+# First time setup (after cloning repo):
+npm install
+
+# Run development server:
+npm start
+# Opens http://localhost:3000 with navigation buttons to switch between figures
+
+# Build for production (creates static files for export):
+npm run build
+```
+
+**Tech Stack:**
+- React 18
+- Tailwind CSS 3.4.1
+- Create React App
+
+**Components:**
+- `src/CorrelationHeatmap.jsx` - Color-coded correlation matrix
+- `src/MediationFigure.jsx` - Path diagram with ACME values
+- `src/App.js` - Navigation between visualizations
+
+**Exporting figures for poster:**
+1. Run `npm start`
+2. Navigate to each visualization
+3. Use browser screenshot tools or "Save as PDF" to export
+4. Figures are optimized for 1920x1080 display
+
+**Note:** The `node_modules/` folder is excluded from git (see `.gitignore`). Always run `npm install` after cloning.
+
 ---
 
 ## Danny — Abstract
@@ -191,8 +245,10 @@ Written abstract for the conference; no code.
 
 ---
 
-## Dependencies (R ≥ 4.3)
-```
+## Dependencies
+
+### R (≥ 4.3)
+```r
 tidyverse
 dplyr
 ggplot2
@@ -205,6 +261,16 @@ kableExtra
 ShapleyValue
 psych
 readr
+```
+
+### Node.js (≥ 14) - For Poster Figures
+```bash
+# Install Node.js from https://nodejs.org/ or via Homebrew:
+brew install node
+
+# Verify installation:
+node --version
+npm --version
 ```
 
 ---
@@ -247,6 +313,13 @@ rmarkdown::render("Megan/projectprep/megan-psychonom-data-prep.Rmd")
 rmarkdown::render("Megan/final/megdawg-Psychonomics.Rmd")
 ```
 
+**Generate poster figures:**
+```bash
+cd Megan/final/poster-figures
+npm install  # First time only
+npm start    # Opens interactive visualizations at localhost:3000
+```
+
 ---
 
 ## Variable Quick Reference
@@ -258,5 +331,35 @@ rmarkdown::render("Megan/final/megdawg-Psychonomics.Rmd")
 
 ---
 
-**Maintainer:** Danny Zweben  
-**Status:** Ready for replication and poster figure generation.
+## Troubleshooting
+
+### React Visualizations Not Displaying
+If visualizations don't render properly:
+
+1. **Verify Tailwind CSS is configured:**
+```bash
+   cd Megan/final/poster-figures
+   cat tailwind.config.js
+```
+   Should show `content: ["./src/**/*.{js,jsx,ts,tsx}"]`
+
+2. **Check index.css has Tailwind directives:**
+```bash
+   cat src/index.css
+```
+   Should contain:
+```css
+   @tailwind base;
+   @tailwind components;
+   @tailwind utilities;
+```
+
+3. **Clear cache and restart:**
+```bash
+   rm -rf node_modules/.cache
+   npm start
+```
+
+4. **Hard refresh browser:** Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+
+-
