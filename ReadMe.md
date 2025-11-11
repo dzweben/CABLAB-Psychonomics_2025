@@ -14,7 +14,7 @@ This repo contains **two independent analysis tracks** plus shared scoring pipel
 ---
 <img src="images/icon.png" alt="icon" width="820">
 <img src="images/mediate.png" alt="icon" width="820">
-<img src="images/correlate.png" alt="icon" width="820">
+<img src="images/Correlate.png" alt="icon" width="820">
 
 
 ## Directory Layout:
