@@ -8,6 +8,8 @@ output: html_document
 ```{r}
 
 library(dplyr)
+
+
 df1 <- read.csv("/Users/dannyzweben/Desktop/CABLAB_Files/Psychonomics_2025/Kirsten/Kirsten-final/LItesubstanceabuse.csv")
 ```
 
@@ -32,6 +34,7 @@ library(ShapleyValue)
 library(dplyr)
 library(knitr)
 library(kableExtra)
+library(tidyr)
 
 # Define your dependent variables
 dvs <- c("nicotine_pca_score", "marijuana_pca_score", "alcohol_pca_score")
