@@ -411,52 +411,13 @@ sim_slopes(model, pred = "alcohol_scale", modx = "participant_age", johnson_neym
 ```
 
 
+
 ```{r}
-library(interactions)
 
 # Fit the model
 model <- lm(zuckerman.z ~ alcohol_scale * participant_age, data = df_combined)
 
-# Plot the interaction
-interact_plot(
-  model,
-  pred = "participant_age",
-  modx = "alcohol_scale",
-  interval = TRUE,        # include CI ribbons
-  modx.labels = c("Low Alcohol Use", "High Alcohol Use"),
-  x.label = "Age",
-  y.label = "Predicted Sensation Seeking (z-score)",
-  main.title = "Interaction of Alcohol Use × Age Predicting Sensation Seeking",
-  legend.main = "Alcohol Use Group"
-)
 
-```
-
-
-```{r}
-library(interactions)
-
-# Fit the model
-model <- lm(zuckerman.z ~ alcohol_scale * participant_age, data = df_combined)
-
-# Run Johnson–Neyman and get the plot
-jn <- johnson_neyman(
-  model,
-  pred = "alcohol_scale",
-  modx = "participant_age",
-  plot = TRUE
-)
-
-# If you want to edit axis labels/title:
-library(ggplot2)
-
-jn$plot +
-  labs(
-    x = "Age",
-    y = "Effect of Alcohol Use on Sensation Seeking (Slope)",
-    title = "Johnson–Neyman Significance Region for Alcohol × Age Interaction"
-  ) +
-  theme_minimal(base_size = 14)
 
 ```
 
