@@ -28,9 +28,9 @@ fig, ax = plt.subplots(figsize=(10, 7))
 
 # Plot
 ax.plot(alcohol_use, teens_ss, 'o-', linewidth=3, markersize=12, 
-         color='#e74c3c', label='Teens (Age 15-17)', alpha=0.9)
+         color='#e74c3c', label='(Age 15-18)', alpha=0.9)
 ax.plot(alcohol_use, adults_ss, 's-', linewidth=3, markersize=12,
-         color='#3498db', label='Adults (Age 18+)', alpha=0.9)
+         color='#3498db', label='(Age 19+)', alpha=0.9)
 
 ax.set_xlabel('Alcohol Use', fontsize=13, weight='bold')
 ax.set_ylabel('Sensation Seeking (z-score)', fontsize=13, weight='bold')
